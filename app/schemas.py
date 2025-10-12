@@ -15,3 +15,11 @@ class Booking_Info(BaseModel):
     surname: constr(min_length=2, max_length=50)
     start_Date: constr(min_length=10, max_length=10)
     end_Date: constr(min_length=10, max_length=10)
+
+class Payments(BaseModel):
+    card_no: int(min_length=16, max_length=16)
+    expiry: constr(min_length=10, max_length=10)
+    nameOnCard: constr(min_length=2, max_length=50)
+    CVV: constr(min_length=3, max_length=3)
+    billing_address: constr(min_length=2, max_length=50)
+
