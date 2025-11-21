@@ -1,39 +1,74 @@
-from fastapi import APIRouter, HTTPException, status
-from .schemas import Booking_Info
+from fastapi import FastAPI, Depends, HTTPException, status, Response
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from .database import engine, SessionLocal
+from .models import Base, BookingsDB
+from .schemas import BookingCreate, BookingRead
 
-router = APIRouter()
-bookings: list[Booking_Info] = []
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
 
-@router.get("/")
-def get_bookings():
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.get("/api/bookings", response_model=list[BookingRead])
+def list_bookings(db: Session = Depends(get_db)):
+    stmt = select(BookingsDB).order_by(BookingsDB.id)
+    result = db.execute(stmt)
+    bookings = result.scalars().all()
     return bookings
 
-@router.get("/{booking_id}")
-def get_booking(booking_id: int):
-    for b in bookings:
-        if b.booking_id == booking_id:
-            return b
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def add_booking(booking: Booking_Info):
-    if any(b.booking_id == booking.booking_id for b in bookings):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="booking_id already exists")
-    bookings.append(booking)
+@app.get("/api/bookings/{booking_id}", response_model=BookingRead)
+def get_booking(booking_id: int, db: Session = Depends(get_db)):
+    booking = db.get(BookingsDB, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Boooking not found")
     return booking
 
-@router.put("/{booking_id}", status_code=status.HTTP_200_OK)
-def update_booking(booking_id: int, new_booking: Booking_Info):
-    for i, b in enumerate(bookings):
-        if b.booking_id == booking_id:
-            bookings[i] = new_booking
-            return new_booking
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
 
-@router.delete("/{booking_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(booking_id: int):
-    for i, b in enumerate(bookings):
-        if b.booking_id == booking_id:
-            bookings.pop(i)
-            return
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found")
+@app.post("/api/bookings", response_model=BookingRead, status_code=status.HTTP_201_CREATED)
+def add_booking(payload: BookingCreate, db: Session = Depends(get_db)):
+    booking = BookingsDB(**payload.model_dump())
+    db.add(booking)
+    try:
+        db.commit()
+        db.refresh(booking)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Booking already exists")
+    return booking
+
+@app.put("/api/bookings/{booking_id}", response_model=BookingRead)
+def replace_booking(booking_id: int, payload: BookingCreate, db: Session = Depends(get_db)):
+    booking = db.get(BookingsDB, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="booking not found")
+
+    booking.first_name = payload.first_name
+    booking.surname = payload.surname
+    booking.start_Date = payload.start_Date
+    booking.end_Date = payload.end_Date
+
+    try:
+        db.commit()
+        sb.refresh(booking)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Booking update Failed")
+    return booking
+
+@app.delete("/api/bookings/{booking_id}", status_code=204)
+def delete_booking(booking_id: int, db: Session = Depends(get_db)) -> Response:
+    booking = db.get(BookingsDB, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="booking not found")
+    db.delete_booking
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

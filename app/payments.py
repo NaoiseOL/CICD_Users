@@ -1,39 +1,75 @@
-from fastapi import APIRouter, HTTPException, status
-from .schemas import Payments
+from fastapi import FastAPI, Depends, HTTPException, status, Response
+from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from .database import engine, SessionLocal
+from .models import Base, UserDB
+from .schemas import PaymentCreate, PaymentRead
 
-router = APIRouter()
-payments: list[Payments] = []
+app = FastAPI()
+Base.metadata.create_all(bind=engine)
 
-@router.get("/")
-def get_payments():
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@app.get("/api/payments", response_model=list[PaymentRead])
+def list_payments(db: Session = Depends(get_db)):
+    stmt = select(PaymentsDB).order_by(PaymentsDB.id)
+    result = db.execute(stmt)
+    payments = result.scalars().all()
     return payments
 
-@router.get("/{payment_id}")
-def get_payment(payment_id: int):
-    for p in payments:
-        if p.payment_id == payment_id:
-            return p
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
-def add_payment(payment: Payments):
-    if any(p.payment_id == payment.payment_id for p in payments):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="payment_id already exists")
-    payments.append(payment)
+@app.get("/api/payments/{payments_id}", response_model=PaymentRead)
+def get_payments(payments_id: int, db: Session = Depends(get_db)):
+    payment = db.get(PaymentsDB, payments_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="payment not found")
     return payment
 
-@router.put("/{payment_id}", status_code=status.HTTP_200_OK)
-def update_payment(payment_id: int, new_payment: Payments):
-    for i, p in enumerate(payments):
-        if p.payment_id == payment_id:
-            payments[i] = new_payment
-            return new_payment
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
-@router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(payment_id: int):
-    for i, p in enumerate(payments):
-        if p.payment_id == payment_id:
-            payments.pop(i)
-            return
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
+@app.post("/api/payments", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
+def add_payments(payload: PaymentCreate, db: Session = Depends(get_db)):
+    payment = PaymentsDB(**payload.model_dump())
+    db.add(payment)
+    try:
+        db.commit()
+        db.refresh(payment)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="payment already exists")
+    return payment
+
+@app.put("/api/payments/{payments_id}", response_model=PaymentRead)
+def replace_payment(payments_id: int, payload: PaymentCreate, db: Session = Depends(get_db)):
+    payments = db.get(PaymentsDB, payments_id)
+    if not payments:
+        raise HTTPException(status_code=404, detail="payments not found")
+
+    payments.card_no = payload.card_no
+    payments.expiry = payload.expiry
+    payments.nameOnCard = payload.nameOnCard
+    payments.CVV = payload.CVV
+    payments.billing_address = payload.billing_address
+
+    try:
+        db.commit()
+        sb.refresh(booking)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="payment update Failed")
+    return payments
+
+@app.delete("/api/payments/{payments_id}", status_code=204)
+def delete_payments(payments_id: int, db: Session = Depends(get_db)) -> Response:
+    payments = db.get(PaymentsDB, payments_id)
+    if not payments:
+        raise HTTPException(status_code=404, detail="payments not found")
+    db.delete_payments
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
