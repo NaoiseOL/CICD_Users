@@ -10,7 +10,6 @@ end_DateStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 AgeInt = Annotated[int, Ge(0), Le(150)]
 
 class BookingCreate(BaseModel):
-    booking_id: int
     first_name: NameStr
     surname: SurnameStr
     start_Date: start_DateStr

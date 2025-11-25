@@ -15,7 +15,6 @@ class UserCreate(BaseModel):
     age: AgeInt
     email: EmailStr
     phoneNo: phoneNoStr
-    booking_number: booking_numberStr
 
 class UserRead(BaseModel):
     user_id: int
@@ -24,7 +23,6 @@ class UserRead(BaseModel):
     age: AgeInt
     email: EmailStr
     phoneNo: phoneNoStr
-    booking_number: booking_numberStr
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -34,4 +32,3 @@ class UserUpdate(BaseModel):
     age: Optional[AgeInt]= None
     email: Optional[EmailStr] = None
     phoneNo: Optional[phoneNoStr] = None
-    booking_number: Optional[booking_numberStr] = None

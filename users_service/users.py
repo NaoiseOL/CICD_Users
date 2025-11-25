@@ -4,10 +4,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from database import engine, SessionLocal
 from .models import Base, UserDB
-from .schemas import UserCreate, UserRead, UserUpdate
+from .schemas import UserCreate, UserRead
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()
@@ -19,10 +20,9 @@ def get_db():
 
 @app.get("/api/users", response_model=list[UserRead])
 def list_users(db: Session = Depends(get_db)):
-    stmt = select(UserDB).order_by(UserDB.id)
+    stmt = select(UserDB).order_by(UserDB.user_id)
     result = db.execute(stmt)
-    users = result.scalars().all()
-    return users
+    return result.scalars().all()
 
 
 @app.get("/api/users/{user_id}", response_model=UserRead)
@@ -45,48 +45,39 @@ def add_user(payload: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="User already exists")
     return user
 
+
 @app.put("/api/users/{user_id}", response_model=UserRead)
 def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
     user = db.get(UserDB, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.name = payload.name
+    user.first_name = payload.first_name
+    user.surname = payload.surname
     user.email = payload.email
     user.age = payload.age
-    user.student_id = payload.student_id
+    user.phoneNo = payload.phoneNo
+
+    db.commit()
+    db.refresh(user)
+
+    return user
 
     try:
         db.commit()
-        sb.refresh(user)
+        db.refresh(user) 
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="User update Failed")
+        raise HTTPException(status_code=409, detail="User update failed")
     return user
 
-@app.delete("/api/users/{user_id}", status_code=204)
+
+@app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     user = db.get(UserDB, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    db.delete_user
+    db.delete(user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@app.patch("/api/users/{user_id}", response_model=UserRead)
-def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
-    user = db.get(UserDB, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # Only update fields that are provided
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(user, field, value)
-
-    try:
-        db.commit()
-        db.refresh(user)
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="User patch failed")
-    return user

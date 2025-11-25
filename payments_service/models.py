@@ -6,7 +6,7 @@ class Base(DeclarativeBase):
 
 class PaymentsDB(Base):
     __tablename__ = "payments"
-    id: Mapped[int] = mapped_column(primary_key=True)
+    payment_id: Mapped[int] = mapped_column(primary_key=True)
     card_no: Mapped[str] = mapped_column(String(100), nullable=False)
     expiry: Mapped[str] = mapped_column(String(100), nullable=False)
     nameOnCard: Mapped[str] = mapped_column(String(100), nullable=False)

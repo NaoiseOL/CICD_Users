@@ -7,6 +7,7 @@ from .models import Base, BookingsDB
 from .schemas import BookingCreate, BookingRead
 
 app = FastAPI()
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 def get_db():
@@ -16,10 +17,9 @@ def get_db():
     finally:
         db.close()
 
-
 @app.get("/api/bookings", response_model=list[BookingRead])
 def list_bookings(db: Session = Depends(get_db)):
-    stmt = select(BookingsDB).order_by(BookingsDB.id)
+    stmt = select(BookingsDB).order_by(BookingsDB.booking_id)
     result = db.execute(stmt)
     bookings = result.scalars().all()
     return bookings
@@ -35,7 +35,7 @@ def get_booking(booking_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/bookings", response_model=BookingRead, status_code=status.HTTP_201_CREATED)
 def add_booking(payload: BookingCreate, db: Session = Depends(get_db)):
-    booking = BookingsDB(**payload.model_dump())
+    booking = BookingsDB(**payload.dict(exclude_unset=True))
     db.add(booking)
     try:
         db.commit()
@@ -58,7 +58,7 @@ def replace_booking(booking_id: int, payload: BookingCreate, db: Session = Depen
 
     try:
         db.commit()
-        sb.refresh(booking)
+        db.refresh(booking)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Booking update Failed")
@@ -69,6 +69,6 @@ def delete_booking(booking_id: int, db: Session = Depends(get_db)) -> Response:
     booking = db.get(BookingsDB, booking_id)
     if not booking:
         raise HTTPException(status_code=404, detail="booking not found")
-    db.delete_booking
+    db.delete_booking(booking)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

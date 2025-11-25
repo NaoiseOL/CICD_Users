@@ -19,7 +19,7 @@ def get_db():
 
 @app.get("/api/payments", response_model=list[PaymentRead])
 def list_payments(db: Session = Depends(get_db)):
-    stmt = select(PaymentsDB).order_by(PaymentsDB.id)
+    stmt = select(PaymentsDB).order_by(PaymentsDB.payment_id)
     result = db.execute(stmt)
     payments = result.scalars().all()
     return payments
@@ -34,15 +34,15 @@ def get_payments(payments_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/payments", response_model=PaymentRead, status_code=status.HTTP_201_CREATED)
-def add_payments(payload: PaymentCreate, db: Session = Depends(get_db)):
-    payment = PaymentsDB(**payload.model_dump())
+def add_payment(payload: PaymentCreate, db: Session = Depends(get_db)):
+    payment = PaymentsDB(**payload.dict(exclude_unset=True))
     db.add(payment)
     try:
         db.commit()
         db.refresh(payment)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="payment already exists")
+        raise HTTPException(status_code=409, detail="Payment already exists")
     return payment
 
 @app.put("/api/payments/{payments_id}", response_model=PaymentRead)
@@ -59,7 +59,7 @@ def replace_payment(payments_id: int, payload: PaymentCreate, db: Session = Depe
 
     try:
         db.commit()
-        sb.refresh(booking)
+        db.refresh(payments)
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="payment update Failed")

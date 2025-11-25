@@ -10,7 +10,6 @@ CVVStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 billing_addressStr = Annotated[str, StringConstraints(min_length=2, max_length=50)]
 
 class PaymentCreate(BaseModel):
-    payment_id: int
     card_no: card_noStr
     expiry: expiryStr
     nameOnCard: nameOnCardStr
