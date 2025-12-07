@@ -1,4 +1,4 @@
-APP = app.main:app
+APP = users_service.users:app
 PID_FILE = .uvicorn.pid
 
 install:
