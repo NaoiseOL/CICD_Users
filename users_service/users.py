@@ -1,13 +1,28 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Response
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from database import engine, SessionLocal
+from .database import engine, SessionLocal
 from .models import Base, UserDB
 from .schemas import UserCreate, UserRead
 
-app = FastAPI()
-Base.metadata.create_all(bind=engine)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+# CORS (add this block)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # dev-friendly; tighten in prod
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 
 def get_db():
@@ -57,12 +72,7 @@ def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db
     user.email = payload.email
     user.age = payload.age
     user.phoneNo = payload.phoneNo
-
-    db.commit()
-    db.refresh(user)
-
-    return user
-
+    
     try:
         db.commit()
         db.refresh(user) 
