@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from .database import engine, SessionLocal
 from .models import Base, UserDB
 from .schemas import UserCreate, UserRead, UserUpdate
+from .rabbit import publish_event
+import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,8 +24,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 def get_db():
     db = SessionLocal()
@@ -49,7 +49,7 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/users", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def add_user(payload: UserCreate, db: Session = Depends(get_db)):
+async def add_user(payload: UserCreate, db: Session = Depends(get_db)):
     user = UserDB(**payload.model_dump())
     db.add(user)
     try:
@@ -58,11 +58,23 @@ def add_user(payload: UserCreate, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="User already exists")
+
+    asyncio.create_task(
+        publish_event(
+            "user.created",   # use dot, not space
+            {
+                "id": user.user_id,
+                "first_name": user.first_name,
+                "surname": user.surname
+            }
+        )
+    )
+
     return user
 
 
 @app.put("/api/users/{user_id}", response_model=UserRead)
-def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
+async def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db)):
     user = db.get(UserDB, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -79,12 +91,33 @@ def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(get_db
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="User update failed")
+
+    asyncio.create_task(
+        publish_event(
+            "user.updated",   # use dot, not space
+            {
+                "id": user.user_id,
+                "first_name": user.first_name,
+                "surname": user.surname
+            }
+        )
+    )
     return user
 
 
 @app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
+async def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     user = db.get(UserDB, user_id)
+    asyncio.create_task(
+        publish_event(
+            "user.deleted",
+            {
+                "id": user.user_id,
+                "first_name": user.first_name,
+                "surname": user.surname
+            }
+        )
+    )
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     db.delete(user)
@@ -92,7 +125,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.patch("/api/users/{users_id}", response_model=UserRead)
-def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+async def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
     user = db.get(UserDB, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User Not Found")
@@ -106,4 +139,15 @@ def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db))
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="User Patch Failed")
+
+    asyncio.create_task(
+        publish_event(
+            "user.patched",   # use dot, not space
+            {
+                "id": user.user_id,
+                "first_name": user.first_name,
+                "surname": user.surname
+            }
+        )
+    )
     return user
