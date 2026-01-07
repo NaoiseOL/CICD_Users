@@ -1,12 +1,12 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from .database import engine, SessionLocal
 from .models import Base, UserDB
-from .schemas import UserCreate, UserRead
+from .schemas import UserCreate, UserRead, UserUpdate
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -91,3 +91,19 @@ def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+@app.patch("/api/users/{users_id}", response_model=UserRead)
+def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+    user = db.get(UserDB, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User Not Found")
+
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(user, field, value)
+
+    try:
+        db.commit()
+        db.refresh(user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="User Patch Failed")
+    return user
