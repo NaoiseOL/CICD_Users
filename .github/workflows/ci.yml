@@ -1,8 +1,7 @@
-name: Build & Push Users Image
-
+name: Build & Push Image
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 jobs:
@@ -11,22 +10,19 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Set image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/users3" >> $GITHUB_ENV
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/users1.1" >> $GITHUB_ENV
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
+      - name: Build and Push
         uses: docker/build-push-action@v6
         with:
           context: .
