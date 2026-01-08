@@ -64,7 +64,8 @@ async def add_user(payload: UserCreate, db: Session = Depends(get_db)):
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
-                "surname": user.surname
+                "surname": user.surname,
+                "email": user.email
             }
         )
     )
@@ -97,7 +98,8 @@ async def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
-                "surname": user.surname
+                "surname": user.surname,
+                "email": user.email
             }
         )
     )
@@ -117,7 +119,8 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
-                "surname": user.surname
+                "surname": user.surname,
+                "email": user.email
             }
         )
     )
@@ -148,7 +151,8 @@ async def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(ge
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
-                "surname": user.surname
+                "surname": user.surname,
+                "email": user.email
             }
         )
     )
