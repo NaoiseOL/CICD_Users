@@ -12,6 +12,7 @@ async def get_exchange():
     return conn, ch, ex
 
 async def publish_event(event_type: str, payload: dict):
+    print("PUBLISH CALLED", flush=True)
     conn,ch,ex = await get_exchange()
 
     msg = aio_pika.Message(
