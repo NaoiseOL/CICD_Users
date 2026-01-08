@@ -17,10 +17,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# CORS (add this block)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # dev-friendly; tighten in prod
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -61,7 +60,7 @@ async def add_user(payload: UserCreate, db: Session = Depends(get_db)):
 
     asyncio.create_task(
         publish_event(
-            "user.created",   # use dot, not space
+            "user.created",
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
@@ -94,7 +93,7 @@ async def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(
 
     asyncio.create_task(
         publish_event(
-            "user.updated",   # use dot, not space
+            "user.updated",
             {
                 "id": user.user_id,
                 "first_name": user.first_name,
@@ -108,6 +107,10 @@ async def replace_user(user_id: int, payload: UserCreate, db: Session = Depends(
 @app.delete("/api/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
     user = db.get(UserDB, user_id)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
     asyncio.create_task(
         publish_event(
             "user.deleted",
@@ -118,13 +121,12 @@ async def delete_user(user_id: int, db: Session = Depends(get_db)) -> Response:
             }
         )
     )
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    
     db.delete(user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-@app.patch("/api/users/{users_id}", response_model=UserRead)
+@app.patch("/api/users/{user_id}", response_model=UserRead)
 async def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
     user = db.get(UserDB, user_id)
     if not user:
@@ -142,7 +144,7 @@ async def patch_user(user_id: int, payload: UserUpdate, db: Session = Depends(ge
 
     asyncio.create_task(
         publish_event(
-            "user.patched",   # use dot, not space
+            "user.patched",
             {
                 "id": user.user_id,
                 "first_name": user.first_name,

@@ -21,10 +21,13 @@ def test_get_user_404(client):
     assert r.status_code == 404
 
 def test_delete_then_404(client):
-    client.post("/api/users", json=user_payload(uid=10))
-    r1 = client.delete("/api/users/10")
+    create_response = client.post("/api/users", json=user_payload(uid=10))
+    actual_user_id = create_response.json()["user_id"]
+    
+    r1 = client.delete(f"/api/users/{actual_user_id}")
     assert r1.status_code == 204
-    r2 = client.delete("/api/users/10")
+    
+    r2 = client.delete(f"/api/users/{actual_user_id}")
     assert r2.status_code == 404
 
 def test_put_OK(client):
@@ -44,3 +47,30 @@ def test_put_404(client):
     r = client.put("/api/users/999", json=user_payload(uid=1, first_name="Naoise", email="naoise@atu.ie", age=25))
 
     assert r.status_code == 404
+
+def test_patch_user_ok(client):
+    # Create user and capture the actual ID
+    create_response = client.post("/api/users", json=user_payload(uid=5))
+    created_user = create_response.json()
+    actual_user_id = created_user["user_id"]  # Get the real ID (probably 1, not 5)
+
+    patch_data = {
+        "first_name": "john",
+        "age": 30
+    }
+
+    r = client.patch(f"/api/users/{actual_user_id}", json=patch_data)
+    assert r.status_code == 200
+
+    data = r.json()
+
+    assert data["first_name"] == "john"
+    assert data["age"] == 30
+
+    assert data["surname"] == "OLoughlin" 
+    assert data["email"] == "naoiseol123@gmail.com" 
+    assert data["phoneNo"] == "0860378167" 
+
+    def test_patch_user_404(client):
+        r = client.patch("/api/users/999", json={"first_name": "Dave"})
+        assert r.status_code == 404
